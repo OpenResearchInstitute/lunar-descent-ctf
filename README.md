@@ -55,10 +55,10 @@ Accept any version of this that shows they understand the cascade/re-acquisition
 2. The real ISRO system doesn't go back to UNLOCKED during a mode switch.
 3. What if you stayed LOCKED and just changed the sweep time? What would you need to verify?
 
-### Prize Suggestions
-- **1300 pts (MISSION PERFECT):** Custom ORI sticker + bragging rights + offered a volunteer position on the FPGA team
-- **800 pts (SMOOTH OPERATOR + SOFT TOUCHDOWN):** ORI sticker
-- **300 pts (RECON + FIRST LIGHT):** QR code to the GitHub repo
+### Prize Suggestions and Titles
+- **1300 pts (MISSION PERFECT):** Custom ORI sticker + pen + patch + bragging rights + offered a volunteer position on the FPGA team
+- **800 pts (SMOOTH OPERATOR + SOFT TOUCHDOWN):** ORI sticker + pen
+- **300 pts (RECON + FIRST LIGHT):** ORI sticker
 
 ### Timing
 The CTF can run all day alongside the workshop modules. It's self-paced and doesn't require staff attention except for Flag 1 validation and prize distribution.
