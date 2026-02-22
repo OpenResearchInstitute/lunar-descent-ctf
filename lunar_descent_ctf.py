@@ -21,9 +21,11 @@
 
 SETUP:
     pip install numpy matplotlib
-    python lunar_descent_ctf.py          # Run the mission (it will fail)
-    python lunar_descent_ctf.py --test   # Test your fix
-    python lunar_descent_ctf.py --score  # Check your score and get flags
+    python lunar_descent_ctf.py --help                # See all options
+    python lunar_descent_ctf.py                       # Run the mission
+    python lunar_descent_ctf.py --test -p stepwise    # Test a specific profile
+    python lunar_descent_ctf.py --test -p all         # Test all three profiles
+    python lunar_descent_ctf.py --score               # Check your score and get flags
 
 FLAGS:
     1. RECON (100 pts)          — Explain the bug to village staff
@@ -689,61 +691,129 @@ def score_and_flags():
     return total_score, flags_earned
 
 
-def quick_test():
-    """Quick test run with verbose output."""
-    print("\n" + "=" * 65)
-    print("  LUNAR DESCENT — TEST RUN (standard profile)")
-    print("=" * 65)
-    mr, _ = run_descent("standard", verbose=True)
-    print(f"\n  Valid: {mr.valid_measurements}/{mr.total_measurements}")
-    print(f"  Gaps: {mr.tracking_gaps}, longest: {mr.longest_gap}")
-    print(f"  Min altitude tracked: {mr.min_altitude_tracked:.1f} m")
-    print(f"  Landed safely: {'YES' if mr.landed_safely else 'NO'}")
-
-
-def show_mission():
-    """Run the mission and show a visual summary."""
-    print("\n" + "=" * 65)
-    print("  LUNAR DESCENT — MISSION SIMULATION")
-    print("=" * 65)
+def run_test(profile_names, verbose=True):
+    """Run one or more profiles with verbose output and summary."""
+    profiles = profile_names if isinstance(profile_names, list) else [profile_names]
     
-    mr, results = run_descent("standard", verbose=True)
+    for pname in profiles:
+        print(f"\n{'=' * 65}")
+        print(f"  LUNAR DESCENT — TEST RUN ({pname} profile)")
+        print(f"{'=' * 65}")
+        
+        mr, results = run_descent(pname, verbose=verbose)
+        
+        # ASCII visualization of tracking status
+        print(f"\n  Tracking Timeline:")
+        print(f"  (. = valid, X = lost, altitude decreasing left to right)\n")
+        
+        line = "  "
+        for i, (t, ta, ra, v, s) in enumerate(results):
+            if i % 5 == 0:
+                line += "." if v else "X"
+        print(line)
+        
+        alt_start = results[0][1]
+        alt_end = results[-1][1]
+        print(f"  {'↑':>2s}{' ' * (len(line) - 5)}{'↑':>2s}")
+        print(f"  {alt_start:.0f}m{' ' * (len(line) - 12)}{alt_end:.0f}m")
+        
+        print(f"\n  Summary:")
+        print(f"    Valid measurements: {mr.valid_measurements}/{mr.total_measurements}")
+        print(f"    Tracking gaps:      {mr.tracking_gaps} (longest: {mr.longest_gap} cycles)")
+        print(f"    p95 error:          {mr.max_error_pct:.3f}%")
+        print(f"    Min alt tracked:    {mr.min_altitude_tracked:.1f} m")
+        print(f"    MISSION STATUS:     {'LANDED' if mr.landed_safely else 'CRASHED'}")
+        
+        if not mr.landed_safely:
+            print(f"\n  💥 The spacecraft crashed.")
+            print(f"  The autotracker lost lock and couldn't recover.")
     
-    # ASCII visualization of tracking status
-    print(f"\n  Tracking Timeline:")
-    print(f"  (. = valid, X = lost, altitude decreasing left to right)\n")
-    
-    line = "  "
-    for i, (t, ta, ra, v, s) in enumerate(results):
-        if i % 5 == 0:  # Sample every 5th point
-            line += "." if v else "X"
-    print(line)
-    
-    alt_start = results[0][1]
-    alt_end = results[-1][1]
-    print(f"  {'↑':>2s}{' ' * (len(line) - 5)}{'↑':>2s}")
-    print(f"  {alt_start:.0f}m{' ' * (len(line) - 12)}{alt_end:.0f}m")
-    
-    print(f"\n  Summary:")
-    print(f"    Valid measurements: {mr.valid_measurements}/{mr.total_measurements}")
-    print(f"    Tracking gaps:      {mr.tracking_gaps}")
-    print(f"    Min alt tracked:    {mr.min_altitude_tracked:.1f} m")
-    print(f"    MISSION STATUS:     {'LANDED' if mr.landed_safely else 'CRASHED'}")
-    
-    if not mr.landed_safely:
-        print(f"\n  💥 The spacecraft crashed.")
-        print(f"  The autotracker lost lock and couldn't recover.")
-        print(f"  Run with --score to see what you need to fix.")
+    if any(not run_descent(p, seed=42)[0].landed_safely for p in profiles):
+        print(f"\n  Run with --score to see your flags.")
 
 
 # ═══════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
-    if "--score" in sys.argv:
+VALID_PROFILES = ["standard", "aggressive", "stepwise", "all"]
+
+
+def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        prog="lunar_descent_ctf",
+        description="""
+╔══════════════════════════════════════════════════════════════╗
+║  LUNAR DESCENT — BSides San Diego 2026 RF Village CTF      ║
+║                                                            ║
+║  A radar altimeter guided ISRO's Chandrayaan-3 to the     ║
+║  Moon. The autotracker in this model has a bug.            ║
+║  Find it. Fix it. Land the spacecraft.                     ║
+║                                                            ║
+║  5 flags, 1300 points. Zero are free.                      ║
+║  Edit ONLY the AutoTracker class.                          ║
+║                                                            ║
+║  Open Research Institute — openresearch.institute           ║
+╚══════════════════════════════════════════════════════════════╝
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+examples:
+  %(prog)s                        Run the default demo (standard profile)
+  %(prog)s --test                 Verbose test on standard profile
+  %(prog)s --test -p stepwise     Verbose test on stepwise profile
+  %(prog)s --test -p all          Verbose test on all three profiles
+  %(prog)s --score                Score your fix and earn flags
+
+profiles:
+  standard    Smooth Chandrayaan-3-like descent, 10 km → 3 m
+  aggressive  Exponential braking, 8 km → 3 m in 500s
+  stepwise    Hover-then-drop: 5000/2000/800/200/50/10 m
+
+flags:
+  1. RECON (100 pts)           Explain the bug to village staff
+  2. FIRST LIGHT (200 pts)     Zero tracking gaps on standard
+  3. SOFT TOUCHDOWN (300 pts)  Land safely on ALL profiles
+  4. SMOOTH OPERATOR (300 pts) Zero tracking gaps on ALL profiles
+  5. MISSION PERFECT (400 pts) Zero gaps + <0.5%% error + land ALL
+""",
+    )
+    
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--test", action="store_true",
+        help="Run verbose test (use -p to pick profile, default: standard)",
+    )
+    mode.add_argument(
+        "--score", action="store_true",
+        help="Run all profiles and compute score + flags",
+    )
+    
+    parser.add_argument(
+        "-p", "--profile",
+        choices=VALID_PROFILES,
+        default="standard",
+        help="Profile to test: standard, aggressive, stepwise, or all (default: standard)",
+    )
+    
+    args = parser.parse_args()
+    
+    if args.score:
         score_and_flags()
-    elif "--test" in sys.argv:
-        quick_test()
+    elif args.test:
+        if args.profile == "all":
+            run_test(["standard", "aggressive", "stepwise"])
+        else:
+            run_test(args.profile)
     else:
-        show_mission()
+        # Default: demo run on selected profile (or standard)
+        if args.profile == "all":
+            run_test(["standard", "aggressive", "stepwise"], verbose=True)
+        else:
+            run_test(args.profile, verbose=True)
+
+
+if __name__ == "__main__":
+    main()

@@ -8,9 +8,11 @@ The radar altimeter processor that guided ISRO's Chandrayaan-3 to a soft lunar l
 
 ```bash
 pip install numpy matplotlib
-python lunar_descent_ctf.py          # Run the mission — watch it fail
-python lunar_descent_ctf.py --test   # Quick test with verbose output
-python lunar_descent_ctf.py --score  # Check your score and earn flags
+python lunar_descent_ctf.py --help               # See all options
+python lunar_descent_ctf.py                      # Run the mission — watch it fail
+python lunar_descent_ctf.py --test -p stepwise   # Test a specific profile
+python lunar_descent_ctf.py --test -p all        # Test all three profiles
+python lunar_descent_ctf.py --score              # Score your fix and earn flags
 ```
 
 **Rules:**
