@@ -6,14 +6,13 @@
 ║   Can you land the spacecraft?                                 ║
 ║                                                                ║
 ║   The radar altimeter tracks altitude during descent, but      ║
-║   something goes wrong below 400 meters. The autotracker       ║
-║   loses lock and the altitude readings go dark.                ║
-║                                                                ║
-║   On a real mission, this means you crash.                     ║
+║   something goes wrong during mode transitions. The            ║
+║   autotracker loses lock and the altitude readings go dark.    ║
 ║                                                                ║
 ║   Your job: find the bug, explain it, fix it, land safely.     ║
 ║                                                                ║
-║   Five flags. Increasing difficulty.                           ║
+║   Five flags. Increasing difficulty. Zero are free.            ║
+║                                                                ║
 ║   Submit flags at the RF Village table.                        ║
 ║                                                                ║
 ║   Open Research Institute — openresearch.institute              ║
@@ -26,6 +25,13 @@ SETUP:
     python lunar_descent_ctf.py --test   # Test your fix
     python lunar_descent_ctf.py --score  # Check your score and get flags
 
+FLAGS:
+    1. RECON (100 pts)          — Explain the bug to village staff
+    2. FIRST LIGHT (200 pts)    — Zero tracking gaps on standard profile
+    3. SOFT TOUCHDOWN (300 pts) — Land safely on ALL three profiles
+    4. SMOOTH OPERATOR (300 pts)— Zero tracking gaps on ALL profiles
+    5. MISSION PERFECT (400 pts)— Zero gaps + <0.5% error + land ALL
+
 RULES:
     - Edit ONLY the AutoTracker class (marked with the banner below)
     - Don't change the signal generation, FFT, or altitude estimator
@@ -33,7 +39,7 @@ RULES:
     - The verify() function checks your fix against hidden test profiles
     - Flags are generated from your solution's actual performance
 
-HINTS (each one costs you 50 points):
+HINTS (each one costs you 50 points at the village table):
     - Hint 1: Read the state transitions in process_measurement(). 
               What happens to self.state when current_mode changes?
     - Hint 2: The real ISRO system doesn't go back to UNLOCKED during 
@@ -532,7 +538,18 @@ def _flag(seed_str: str) -> str:
 
 
 def score_and_flags():
-    """Run all test profiles and compute score + flags."""
+    """Run all test profiles and compute score + flags.
+    
+    Flag structure — EVERY flag requires actual code changes:
+    
+      Flag 1 (100 pts) RECON:           Staff-validated, no hash on screen.
+      Flag 2 (200 pts) FIRST LIGHT:     Zero tracking gaps on standard.
+      Flag 3 (300 pts) SOFT TOUCHDOWN:   Land safely on ALL profiles.
+      Flag 4 (300 pts) SMOOTH OPERATOR:  Zero tracking gaps on ALL profiles.
+      Flag 5 (400 pts) MISSION PERFECT:  Zero gaps + <0.5% error + land ALL.
+    
+    Buggy code scores: 0 / 1300.
+    """
     print("\n" + "=" * 65)
     print("  LUNAR DESCENT CTF — SCORING")
     print("=" * 65)
@@ -551,7 +568,7 @@ def score_and_flags():
         print(f"    Tracking gaps:      {mr.tracking_gaps}")
         print(f"    Longest gap:        {mr.longest_gap} cycles")
         print(f"    Min alt tracked:    {mr.min_altitude_tracked:.1f} m")
-        print(f"    Max error:          {mr.max_error_pct:.3f}%")
+        print(f"    p95 error:          {mr.max_error_pct:.3f}%")
         print(f"    Continuous from:    {mr.continuous_from_m:.1f} m")
         print(f"    Landed safely:      {'YES' if mr.landed_safely else 'NO'}")
     
@@ -560,79 +577,81 @@ def score_and_flags():
     mr_step = all_results["stepwise"]
     
     # ── FLAG 1 (100 pts): IDENTIFY THE BUG ──────────────────────
-    # Awarded if you can even run the simulation and see the problem.
-    # Just running --score earns this one (you found where to look).
-    # But to claim it, you need to tell the village staff what the bug is.
+    # Staff-validated ONLY. No hash printed. Participant must walk to
+    # the RF Village table and explain the bug to earn this flag.
+    # See CTF_README.md for staff validation criteria.
     print(f"\n{'─' * 65}")
-    flag1 = _flag("identify-the-bug")
     print(f"  FLAG 1 — RECON (100 pts)")
-    print(f"  Find the bug in AutoTracker. Tell the RF Village staff")
-    print(f"  which line causes the problem and why.")
-    print(f"  {flag1}")
-    flags_earned.append(("RECON", 100, flag1))
-    total_score += 100
+    print(f"  Find the bug in AutoTracker.process_measurement().")
+    print(f"  Explain to RF Village staff: which line, what it does")
+    print(f"  wrong, and why it causes tracking loss during descent.")
+    print(f"  [Flag issued by staff — no hash here]")
     
-    # ── FLAG 2 (200 pts): BASIC FIX ────────────────────────────
-    # Awarded if standard profile gets > 80% valid measurements
-    if mr_std.valid_measurements > mr_std.total_measurements * 0.80:
-        flag2 = _flag("basic-fix-works")
-        print(f"\n  FLAG 2 — FIRST LIGHT (200 pts)")
-        print(f"  Standard profile: {mr_std.valid_measurements}/{mr_std.total_measurements} valid")
+    # ── FLAG 2 (200 pts): ZERO GAPS ON STANDARD ────────────────
+    # Buggy code has 6 gaps on standard. Any fix that eliminates
+    # gaps on the gentle profile earns this flag.
+    print(f"\n  FLAG 2 — FIRST LIGHT (200 pts)")
+    if mr_std.tracking_gaps == 0:
+        flag2 = _flag("zero-gaps-standard")
+        print(f"  Zero tracking gaps on standard profile!")
         print(f"  {flag2}")
         flags_earned.append(("FIRST LIGHT", 200, flag2))
         total_score += 200
     else:
-        print(f"\n  FLAG 2 — FIRST LIGHT (200 pts)")
-        print(f"  LOCKED: Need >80% valid on standard profile")
-        print(f"  Currently: {mr_std.valid_measurements}/{mr_std.total_measurements} "
-              f"({100*mr_std.valid_measurements/mr_std.total_measurements:.0f}%)")
-    
-    # ── FLAG 3 (200 pts): CONTINUOUS TRACKING ──────────────────
-    # Awarded if standard profile has zero tracking gaps
-    if mr_std.tracking_gaps == 0:
-        flag3 = _flag("zero-gaps-standard")
-        print(f"\n  FLAG 3 — SMOOTH OPERATOR (200 pts)")
-        print(f"  Zero tracking gaps on standard profile!")
-        print(f"  {flag3}")
-        flags_earned.append(("SMOOTH OPERATOR", 200, flag3))
-        total_score += 200
-    else:
-        print(f"\n  FLAG 3 — SMOOTH OPERATOR (200 pts)")
         print(f"  LOCKED: Need zero tracking gaps on standard profile")
-        print(f"  Currently: {mr_std.tracking_gaps} gaps")
+        print(f"  Currently: {mr_std.tracking_gaps} gaps, "
+              f"longest: {mr_std.longest_gap} cycles")
     
-    # ── FLAG 4 (300 pts): SAFE LANDING ─────────────────────────
-    # Awarded if you land safely on ALL profiles
+    # ── FLAG 3 (300 pts): LAND ON ALL PROFILES ─────────────────
+    # Buggy code crashes stepwise. Fix must handle abrupt altitude
+    # changes, not just smooth descents.
     all_landed = all(all_results[p].landed_safely for p in profiles)
+    print(f"\n  FLAG 3 — SOFT TOUCHDOWN (300 pts)")
     if all_landed:
-        flag4 = _flag("all-profiles-landed")
-        print(f"\n  FLAG 4 — SOFT TOUCHDOWN (300 pts)")
+        flag3 = _flag("all-profiles-landed")
         print(f"  Landed safely on ALL profiles!")
-        print(f"  {flag4}")
-        flags_earned.append(("SOFT TOUCHDOWN", 300, flag4))
+        print(f"  {flag3}")
+        flags_earned.append(("SOFT TOUCHDOWN", 300, flag3))
         total_score += 300
     else:
-        print(f"\n  FLAG 4 — SOFT TOUCHDOWN (300 pts)")
         print(f"  LOCKED: Need safe landing on all profiles")
         for p in profiles:
             status = "LANDED" if all_results[p].landed_safely else "CRASHED"
             print(f"    {p}: {status}")
     
-    # ── FLAG 5 (500 pts): MISSION PERFECT ──────────────────────
-    # Awarded if ALL profiles have zero gaps AND max error < 0.3%
+    # ── FLAG 4 (300 pts): ZERO GAPS ON ALL PROFILES ────────────
+    # This is hard. Stepwise profile forces multi-mode jumps.
     all_zero_gaps = all(all_results[p].tracking_gaps == 0 for p in profiles)
+    print(f"\n  FLAG 4 — SMOOTH OPERATOR (300 pts)")
+    if all_zero_gaps:
+        flag4 = _flag("zero-gaps-all-profiles")
+        print(f"  Zero tracking gaps on ALL profiles!")
+        print(f"  {flag4}")
+        flags_earned.append(("SMOOTH OPERATOR", 300, flag4))
+        total_score += 300
+    else:
+        print(f"  LOCKED: Need zero tracking gaps on ALL profiles")
+        for p in profiles:
+            mr = all_results[p]
+            if mr.tracking_gaps == 0:
+                print(f"    {p}: CLEAN")
+            else:
+                print(f"    {p}: {mr.tracking_gaps} gaps, "
+                      f"longest: {mr.longest_gap} cycles")
+    
+    # ── FLAG 5 (400 pts): MISSION PERFECT ──────────────────────
+    # The whole package: zero gaps, accurate, and landed everywhere.
     all_accurate = all(all_results[p].max_error_pct < 0.5 for p in profiles)
+    print(f"\n  FLAG 5 — MISSION PERFECT (400 pts)")
     if all_zero_gaps and all_accurate and all_landed:
-        flag5 = _flag("mission-perfect-all")
-        print(f"\n  FLAG 5 — MISSION PERFECT (500 pts)")
+        flag5 = _flag("mission-perfect-v2")
         print(f"  Zero gaps, <0.5% p95 error, safe landing on ALL profiles.")
         print(f"  You could land on the Moon.")
         print(f"  {flag5}")
-        flags_earned.append(("MISSION PERFECT", 500, flag5))
-        total_score += 500
+        flags_earned.append(("MISSION PERFECT", 400, flag5))
+        total_score += 400
     else:
-        print(f"\n  FLAG 5 — MISSION PERFECT (500 pts)")
-        print(f"  LOCKED: Need zero gaps + <0.5% p95 error + landing on ALL profiles")
+        print(f"  LOCKED: Need zero gaps + <0.5% p95 error + safe landing, ALL profiles")
         for p in profiles:
             mr = all_results[p]
             issues = []
@@ -649,20 +668,23 @@ def score_and_flags():
     print(f"\n{'═' * 65}")
     print(f"  TOTAL SCORE: {total_score} / 1300 points")
     print(f"  FLAGS: {len(flags_earned)} / 5")
+    print(f"  (Flag 1 is staff-validated at the RF Village table)")
     print(f"{'═' * 65}")
     
-    if total_score >= 1300:
-        print(f"\n  🌙 PERFECT SCORE. You landed on the Moon.")
-        print(f"  Show this to the RF Village table for your sticker.")
-    elif total_score >= 800:
-        print(f"\n  Almost there. The spacecraft survived, but mission")
-        print(f"  control wants better tracking coverage.")
-    elif total_score >= 300:
-        print(f"\n  You found the bug and started fixing it.")
-        print(f"  Keep going — the Moon isn't going anywhere.")
+    if total_score >= 1200:
+        print(f"\n  🌙 You landed on the Moon.")
+        print(f"  Show this to the RF Village table for your prize.")
+    elif total_score >= 500:
+        print(f"\n  Good progress. The spacecraft survived some profiles,")
+        print(f"  but mission control wants continuous tracking everywhere.")
+    elif total_score > 0:
+        print(f"\n  You've started fixing the autotracker. Keep going.")
+        print(f"  The stepwise profile is the hard one.")
     else:
-        print(f"\n  The bug is in AutoTracker.process_measurement().")
-        print(f"  Look at what happens when a mode change is needed.")
+        print(f"\n  Score: 0. The autotracker has a bug.")
+        print(f"  Start by reading AutoTracker.process_measurement().")
+        print(f"  What happens when the altitude changes enough to need")
+        print(f"  a different sweep mode?")
     
     return total_score, flags_earned
 
