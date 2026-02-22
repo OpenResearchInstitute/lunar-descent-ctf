@@ -703,13 +703,18 @@ def run_test(profile_names, verbose=True):
         mr, results = run_descent(pname, verbose=verbose)
         
         # ASCII visualization of tracking status
+        # Each character represents a window of measurements.
+        # X if ANY measurement in that window was invalid.
         print(f"\n  Tracking Timeline:")
-        print(f"  (. = valid, X = lost, altitude decreasing left to right)\n")
+        print(f"  (. = all valid, X = gap detected, altitude decreasing →)\n")
         
+        target_width = 72
+        window = max(1, len(results) // target_width)
         line = "  "
-        for i, (t, ta, ra, v, s) in enumerate(results):
-            if i % 5 == 0:
-                line += "." if v else "X"
+        for i in range(0, len(results), window):
+            chunk = results[i:i + window]
+            all_valid = all(v for (t, ta, ra, v, s) in chunk)
+            line += "." if all_valid else "X"
         print(line)
         
         alt_start = results[0][1]
