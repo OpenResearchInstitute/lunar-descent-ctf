@@ -18,7 +18,7 @@
 ║   Your job: find why the autopilot crashes, fix the sensor    ║
 ║   qualification logic, and land the spacecraft safely.         ║
 ║                                                                ║
-║   Two flags. Zero are free.                                    ║
+║   Three flags. Zero are free.                                  ║
 ║   Submit flags at the RF Village table.                        ║
 ║                                                                ║
 ║   Open Research Institute — openresearch.institute              ║
@@ -58,6 +58,7 @@ THE PHYSICS:
 FLAGS:
     1. RECON (100 pts)          — Explain the bug to village staff
     2. FIRST LIGHT (500 pts)    — Land all three profiles
+    3. NO GAPS (400 pts)        — Zero tracking gaps on all profiles
 
 RULES:
     - Edit ONLY the MeasurementQualifier class (marked below)
@@ -609,8 +610,10 @@ class MissionResult:
     longest_gap: int = 0
     max_position_error_m: float = 0.0
     max_velocity_error_mps: float = 0.0
+    qualifier_rejections: int = 0  # RAP said valid, qualifier said no
+    rap_invalid: int = 0           # RAP itself couldn't produce data
     crashed: bool = False
-    landed: bool = False          # Tracked to below 15m without crashing
+    landed: bool = False
 
 
 def run_mission(profile_name, seed=42, verbose=False):
@@ -626,6 +629,8 @@ def run_mission(profile_name, seed=42, verbose=False):
     current_gap = 0
     longest_gap = 0
     was_valid = False
+    qualifier_rejections = 0
+    rap_invalid = 0
 
     if verbose:
         print(f"\n{'Time':>7s} | {'True Alt':>9s} | {'RAP Alt':>9s} | "
@@ -633,16 +638,17 @@ def run_mission(profile_name, seed=42, verbose=False):
         print("─" * 68)
 
     for t, true_alt, true_vel in profile:
-        # 1. RAP processes the signal
         rap_out = rap.process_cycle(true_alt, true_vel)
-
-        # 2. Qualifier decides what the autopilot sees
         q_alt, q_vel, q_valid = qualifier.qualify(rap_out)
-
-        # 3. Autopilot acts on qualified data
         autopilot.update(q_alt, q_vel, q_valid, true_alt)
 
-        # Track gaps
+        # Track qualifier rejections vs RAP invalids
+        if not rap_out.valid:
+            rap_invalid += 1
+        elif not q_valid:
+            qualifier_rejections += 1
+
+        # Track gaps in qualified output
         if q_valid:
             if current_gap > 0:
                 gap_count += 1
@@ -670,7 +676,6 @@ def run_mission(profile_name, seed=42, verbose=False):
         gap_count += 1
         longest_gap = max(longest_gap, current_gap)
 
-    # Build result
     mr = MissionResult()
     mr.profile_name = profile_name
     mr.total_measurements = len(profile)
@@ -679,6 +684,8 @@ def run_mission(profile_name, seed=42, verbose=False):
     mr.longest_gap = longest_gap
     mr.max_position_error_m = autopilot.state.max_position_error_m
     mr.max_velocity_error_mps = autopilot.state.max_velocity_error
+    mr.qualifier_rejections = qualifier_rejections
+    mr.rap_invalid = rap_invalid
     mr.crashed = autopilot.state.crashed
     mr.landed = (not autopilot.state.crashed and
                  any(r[4] is not None and r[4] < 15.0 for r in results))
@@ -699,11 +706,13 @@ def score_and_flags():
     """Run all profiles and compute flags.
     
     Challenge 1: Velocity Qualification
-    
       Flag 1 (100 pts) RECON:       Explain the bug to staff.
       Flag 2 (500 pts) FIRST LIGHT: Land all three profiles.
     
-      Buggy code scores: 0 / 600.
+    Challenge 2: Full Coverage
+      Flag 3 (400 pts) NO GAPS:     Zero tracking gaps on all profiles.
+    
+    Buggy code scores: 0 / 1000.
     """
     print("\n" + "=" * 68)
     print("  LUNAR DESCENT CTF — SCORING")
@@ -718,7 +727,9 @@ def score_and_flags():
         status = "LANDED" if mr.landed else "CRASHED" if mr.crashed else "LOST"
         print(f"\n  Profile: {pname}")
         print(f"    Valid:          {mr.valid_measurements}/{mr.total_measurements}")
-        print(f"    Gaps:           {mr.tracking_gaps} (longest: {mr.longest_gap})")
+        print(f"    Qualifier rejected: {mr.qualifier_rejections} "
+              f"(RAP had data, qualifier dropped it)")
+        print(f"    RAP invalid:    {mr.rap_invalid} (no signal)")
         print(f"    Position error: {mr.max_position_error_m:.2f} m")
         print(f"    Max velocity:   {mr.max_velocity_error_mps:.1f} m/s")
         print(f"    Status:         {status}")
@@ -729,10 +740,8 @@ def score_and_flags():
     # ── FLAG 1: RECON (100 pts) ─── staff validated ──────────
     print(f"\n{'─' * 68}")
     print(f"  FLAG 1 — RECON (100 pts)")
-    print(f"  The autopilot crashes below 15m. The altitude is fine.")
-    print(f"  Why is the velocity wrong at low altitude?")
-    print(f"  Explain to RF Village staff: what's happening in the FFT")
-    print(f"  and why the number of signal samples matters.")
+    print(f"  The autopilot crashes the lander.")
+    print(f"  Explain to RF Village staff what is the root cause?")
     print(f"  [Flag issued by staff — no hash here]")
 
     # ── FLAG 2: FIRST LIGHT (500 pts) ── land all ────────────
@@ -754,16 +763,55 @@ def score_and_flags():
                 extra = f" (vel={mr.max_velocity_error_mps:.0f} m/s)"
             print(f"    {p}: {status}{extra}")
 
+    # ── FLAG 3: NO GAPS (400 pts) ── full coverage ─────────────
+    # The simplistic Flag 2 fix (reject velocity at low modes) still
+    # leaves rejected cycles — the fixed Doppler threshold throws away
+    # valid high-velocity measurements during fast descent. The crew
+    # is flying blind at high speed. Fix the Doppler qualification to
+    # accept real high-velocity data while still rejecting noise.
+    #
+    # We count QUALIFIER rejections, not RAP invalids. The RAP has
+    # a few genuine signal losses (mode transitions, altitude jump)
+    # that no qualifier can fix. What matters is: when the RAP gives
+    # you good data, does the qualifier pass it through?
+    total_rejections = sum(all_results[p].qualifier_rejections for p in profiles)
+    all_no_rejections = total_rejections == 0 and all_landed
+    print(f"\n  FLAG 3 — NO GAPS (400 pts)")
+    if all_no_rejections:
+        flag3 = _flag("no-gaps-full-coverage")
+        print(f"  Zero qualifier rejections!")
+        print(f"  Every valid RAP measurement reaches the autopilot.")
+        print(f"  {flag3}")
+        flags_earned.append(("NO GAPS", 400, flag3))
+        total_score += 400
+    else:
+        print(f"  LOCKED: Zero qualifier rejections on ALL profiles")
+        print(f"  (The qualifier must pass through ALL valid RAP data)")
+        for p in profiles:
+            mr = all_results[p]
+            if not mr.landed:
+                status = "CRASHED" if mr.crashed else "LOST"
+                print(f"    {p}: {status}")
+            elif mr.qualifier_rejections == 0:
+                print(f"    {p}: CLEAN (0 rejections)")
+            else:
+                print(f"    {p}: {mr.qualifier_rejections} valid measurements rejected")
+
     # Summary
     print(f"\n{'═' * 68}")
-    print(f"  TOTAL SCORE: {total_score} / 600 points")
-    print(f"  FLAGS: {len(flags_earned)} / 2")
+    print(f"  TOTAL SCORE: {total_score} / 1000 points")
+    print(f"  FLAGS: {len(flags_earned)} / 3")
     print(f"  (Flag 1 is staff-validated at the RF Village table)")
     print(f"{'═' * 68}")
 
-    if total_score >= 500:
-        print(f"\n  🌙 All three landers survived.")
+    if total_score >= 900:
+        print(f"\n  🌙 Full coverage, all landers safe.")
         print(f"  Show this to the RF Village table for your prize.")
+    elif total_score >= 500:
+        print(f"\n  Landers survived, but there are tracking gaps.")
+        print(f"  The crew is flying blind during fast descent.")
+        print(f"  Look at the X marks in the timeline — why are valid")
+        print(f"  measurements being rejected?")
     else:
         print(f"\n  Score: 0. All three landers crashed on autopilot.")
         print(f"  The altitude readings are fine. Look at the velocity.")
@@ -830,7 +878,7 @@ def main():
 ║  The altitude is fine. The velocity is not.                ║
 ║                                                            ║
 ║  Fix the MeasurementQualifier class.                       ║
-║  2 flags, 600 points. Zero are free.                       ║
+║  3 flags, 1000 points. Zero are free.                      ║
 ║                                                            ║
 ║  Open Research Institute — openresearch.institute           ║
 ╚══════════════════════════════════════════════════════════════╝
@@ -851,6 +899,7 @@ profiles:
 flags:
   1. RECON (100 pts)           Explain the bug to village staff
   2. FIRST LIGHT (500 pts)     Land all three profiles
+  3. NO GAPS (400 pts)         Zero tracking gaps on all profiles
 """,
     )
 

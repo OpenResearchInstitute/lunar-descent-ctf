@@ -21,16 +21,17 @@ python lunar_descent_ctf.py --score              # Score your fix and earn flags
 - The qualifier decides what the autopilot sees — fix it there
 - Submit flags at the RF Village table
 
-## Two Flags
+## Three Flags
 
-**Zero flags are free.** The buggy code scores 0 / 600 out of the box.
+**Zero flags are free.** The buggy code scores 0 / 1000 out of the box.
 
 | Flag | Points | Challenge |
 |------|--------|-----------|
 | 🔍 RECON | 100 | Explain the bug to village staff (no hash on screen) |
 | 🔭 FIRST LIGHT | 500 | Land all three profiles without crashing |
+| 📡 NO GAPS | 400 | Zero qualifier rejections on all profiles |
 
-**Total: 600 points**
+**Total: 1000 points**
 
 ## The Scenario
 
@@ -45,12 +46,13 @@ You need to find out what's going wrong and fix the measurement qualification lo
 - **0 pts** — Running the code unmodified. The default run shows OK status all the way down until the final approach, then CRASH. 
 - **100 pts** — Explaining the problem to staff. 
 - **600 pts** — Fixing the `MeasurementQualifier` so it can land. 
+- **1000 pts** — Eliminating all qualifier rejections.
 
 ### Validating Flag 1 (RECON)
 **No hash is printed on screen for Flag 1.** Staff issue the flag manually.
 
 ### Timing
-The CTF can run all day alongside the workshop modules and talks. It's self-paced and doesn't require staff attention except for Flag 1 validation and prize distribution. Most participants who understand FMCW radar or FFTs could solve it in less than an hour.
+The CTF can run all day alongside the workshop modules and talks. It's self-paced and doesn't require staff attention except for Flag 1 validation and prize distribution.
 
 ## Test Profiles
 
@@ -67,9 +69,9 @@ The RAP uses FMCW radar. Up-chirp and down-chirp signals produce beat frequencie
 - **f_up = fb − fd** (up-chirp)
 - **f_dn = fb + fd** (down-chirp)
 
-**Altitude** comes from the **sum**: R = M × (f_up_index + f_dn_index). This is robust because peak position errors in the two chirps partially cancel when summed.
+**Altitude** comes from the **sum**: R = M × (f_up_index + f_dn_index). 
 
-**Velocity** comes from the **difference**: fd = (f_dn_index − f_up_index) × freq_res / 2. This is fragile because peak position errors **add** when differenced.
+**Velocity** comes from the **difference**: fd = (f_dn_index − f_up_index) × freq_res / 2. 
 
 The FFT is always 8192 points, but the number of real signal samples depends on the sweep time:
 - Mode 12 (high altitude): 8192 samples → full FFT
