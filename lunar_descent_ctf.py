@@ -53,7 +53,6 @@ THE PHYSICS:
 
     At low altitude (mode 0, T=1.45μs): only 14 signal samples.
     At high altitude (mode 9+, T>945μs): full 8192 samples.
-    What does this mean for measurement quality?
 
 FLAGS:
     1. RECON (100 pts)          — Explain the bug to village staff
@@ -65,12 +64,6 @@ RULES:
     - Don't change the RAP, signal generation, or autopilot
     - The qualifier decides what the autopilot sees
     - Flags are earned by landing performance, not hacking the scorer
-
-HINTS (each one costs 50 points at the village table):
-    - Hint 1: The altitude is fine everywhere. What about the velocity?
-    - Hint 2: How many FFT samples does mode 0 actually have?
-    - Hint 3: The velocity error is proportional to 1/sqrt(samples).
-              Reject or clamp velocity when samples are too few.
 
 Good luck. Don't crash. 🌙
 """
