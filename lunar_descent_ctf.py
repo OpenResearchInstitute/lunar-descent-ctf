@@ -865,15 +865,15 @@ def main():
         prog="lunar_descent_ctf",
         description="""
 ╔══════════════════════════════════════════════════════════════╗
-║  LUNAR DESCENT — BSides San Diego 2026 RF Village CTF      ║
-║                                                            ║
-║  The radar altimeter works. The autopilot crashes.         ║
-║  The altitude is fine. The velocity is not.                ║
-║                                                            ║
-║  Fix the MeasurementQualifier class.                       ║
-║  3 flags, 1000 points. Zero are free.                      ║
-║                                                            ║
-║  Open Research Institute — openresearch.institute           ║
+║  LUNAR DESCENT — BSides San Diego 2026 RF Village CTF        ║
+║                                                              ║
+║  The radar altimeter works. The autopilot crashes.           ║
+║  The altitude is fine. The velocity is not.                  ║
+║                                                              ║
+║  Fix the MeasurementQualifier class.                         ║
+║  3 flags, 1000 points. Zero are free.                        ║
+║                                                              ║
+║  Open Research Institute — openresearch.institute            ║
 ╚══════════════════════════════════════════════════════════════╝
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
