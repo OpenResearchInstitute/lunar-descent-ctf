@@ -4,6 +4,12 @@ A capture-the-flag challenge based on a real signal processing problem in a rada
 
 ISRO's KaRA radar altimeter guided Chandrayaan-3 to a soft lunar landing on 23 August 2023. The Radar Altimeter Processor (RAP) computes altitude and velocity from FMCW chirp signals, running on a single Xilinx Virtex-5 FPGA. This CTF uses a Python model of that system — faithful to the published paper — where the altimeter feeds a landing autopilot. The altimeter works perfectly. The autopilot keeps crashing. Why?
 
+## For Staff and Spoiler Warning
+
+A CTF staff readme and example worked-out solutions for challenge 2 and 3 are in the spoilers/ directory. 
+If you don't want spoilers, don't look there! If you want to see how the CTF is solved, or how we designed the 
+staff resources, or want to use this CTF as a model, then please check spoilers/ out.
+
 ## For Participants
 
 ```bash
